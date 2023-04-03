@@ -1,0 +1,8 @@
+# Project exclude paths
+/public/javascripts/Camera.d.ts
+/public/javascripts/Camera.js
+/public/javascripts/draw.d.ts
+/public/javascripts/draw.js
+/routes/index.js
+/routes/users.js
+/app.js
