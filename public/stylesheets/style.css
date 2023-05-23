@@ -46,6 +46,9 @@ html, body {
 .spacer {
     flex: 1;
 }
+.s-gap {
+    gap: 5%;
+}
 .flush {
     height: 100%;
 }
@@ -53,6 +56,19 @@ html, body {
     margin: 0 var(--standard-padding);
     font-size: 1rem;
 }
+
+.sidebar-icon {
+    font-size: 3rem;
+}
+
+input[type="radio"] {
+    appearance: none;
+}
+
+input[type='radio']:checked ~ i {
+    color: blueviolet;
+}
+
 
 /** Sections */
 .menubar {

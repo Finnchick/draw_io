@@ -1,72 +1,147 @@
-import Camera, {CameraOptions} from "./Camera";
+import { Canvas } from './drawingObjects/Canvas'
+import { type Figures, type Point } from './helperTypes'
+import { Line } from './drawingObjects/Line'
+import { Circle } from './drawingObjects/Circle'
+import { Rectangle } from './drawingObjects/Rectangle'
+import { Sidebar } from './Sidebar'
 
-const canvas = document.querySelector('canvas')!;
-const context = canvas.getContext('2d')!;
+const canvas = new Canvas()
+const sideBar = new Sidebar()
 
-const nodes = [];
-const camera = new Camera(context, {startingPosition: [700, 250]} as CameraOptions);
+let firstClick: Point | null = null
 
-interface Point {
-	x: number,
-	y: number
+let currentObject: Figures | null = null
+let selectedObject = null
+
+const typeCreatorMap = {
+  line: createLine,
+  circle: createCircle,
+  rectangle: createRectangle
+} // convert to ENUM
+
+function createFigure (event: MouseEvent): void {
+  if (event.which === 1) {
+    const type = sideBar.getSelectedType
+    typeCreatorMap[type](event)
+  }
 }
 
-type lastPoint = Point | undefined;
+function createLine (event: MouseEvent): void {
+  if (firstClick === null) {
+    firstClick = {
+      x: event.offsetX,
+      y: event.offsetY
+    }
+  } else {
+    const secondClick = {
+      x: event.offsetX,
+      y: event.offsetY
+    }
 
-if (!canvas) {
-	throw new Error('no canvas')
+    const line = new Line()
+    line.create(firstClick, secondClick)
+    canvas.addObject(line)
+    firstClick = null
+  }
 }
 
-if (!context) {
-	throw new Error('no context')
+function createRectangle (event: MouseEvent): void {
+  if (firstClick === null) {
+    firstClick = {
+      x: event.offsetX,
+      y: event.offsetY
+    }
+  } else {
+    const secondClick = {
+      x: event.offsetX,
+      y: event.offsetY
+    }
+
+    const rectangle = new Rectangle()
+    rectangle.create(firstClick, secondClick)
+    canvas.addObject(rectangle)
+    firstClick = null
+  }
+}
+function createCircle (event: MouseEvent): void {
+  const firstClick = {
+    x: event.offsetX,
+    y: event.offsetY
+  }
+
+  const circle = new Circle()
+  circle.create(firstClick)
+  canvas.addObject(circle)
 }
 
-function resize() {
-	canvas.width = window.innerWidth;
-	canvas.height = window.innerHeight;
-	draw();
-
+function clearCanvas (event: MouseEvent): void {
+  if (event.which === 2) {
+    canvas.clear()
+  }
 }
 
-function draw() {
-	context.clearRect(0, 0, canvas.width, canvas.height);
+function cancelChange (event: KeyboardEvent): void {
+  // console.log(event.which, event.ctrlKey, String.fromCharCode(event.which))
+  if (String.fromCharCode(event.which).toLowerCase() === 'z' && event.ctrlKey) {
+    canvas.cancelChange()
+  }
 }
-let lastPoint: lastPoint;
-
-
-
-function move(e: MouseEvent) {
-
-	if (e.buttons) {
-		if (!lastPoint) {
-			const {x:xTarget, y:yTarget} = camera.worldToScreen(e.offsetX, e.offsetY);
-			lastPoint = { x: xTarget, y: yTarget };
-			return;
-		}
-		camera.begin()
-		context.beginPath();
-		const {x:xLast, y:yLast} = camera.worldToScreen(lastPoint.x, lastPoint.y);
-		// context.moveTo(xLast, yLast);
-		const {x:xTarget, y:yTarget} = camera.worldToScreen(e.offsetX, e.offsetY);
-		console.log('xLast ' + xLast + ' yLast ' +yLast + ' xTarget ' + xTarget + ' yTarget ' + yTarget + ' event x ' + e.offsetX + ' event y ' + e.offsetY)
-		 context.lineTo(xTarget, yTarget);
-		context.strokeStyle = 'green';
-		context.lineWidth = 5;
-		context.lineCap = 'round';
-		context.stroke();
-		// lastPoint = { x: xTarget, y: yTarget };
-	//	debugger
-		camera.end();
-	}
+let startX, startY
+function findColliding (event: MouseEvent): void {
+  console.log('3')
+  startX = event.offsetX
+  startY = event.offsetY
+  if (event.which === 2) {
+    currentObject = canvas.findColliding(startX, startY)
+    console.log(currentObject)
+  }
 }
 
-function key(e: KeyboardEvent) {
-	if (e.key === 'Backspace') {
-		context.clearRect(0, 0, canvas.width, canvas.height);
-	}
+function selectFigure (event: MouseEvent): void {
+  startX = event.offsetX
+  startY = event.offsetY
+  console.log('1')
+  if (event.which === 1 && event.ctrlKey) {
+    selectedObject = canvas.findColliding(startX, startY)
+    selectedObject.select()
+    canvas.rePaint()
+    console.log('2')
+  }
 }
 
-window.onkeydown = key;
-window.onmousemove = move;
-window.onresize = resize;
-resize();
+function mouseOut (event: MouseEvent): void {
+  if (!currentObject?.isDragging) {
+    return
+  }
+
+  event.preventDefault()
+  currentObject.endMovement()
+  //  console.log('mouse out')
+  // TODO change only to mouse up event
+  currentObject.layDown() // change to setter Q А нахуй я это сделал, если интерфейс всё равно не поменялся? У меня же в методах(сет/гет) ниху не происходит
+  canvas.rePaint()
+}
+
+function mouseMove (event: MouseEvent): void {
+  if (currentObject?.isDragging) { // Q: How to check need we to run this func or not
+    const mouseX = event.offsetX
+    const mouseY = event.offsetY
+
+    const dx = mouseX - startX
+    const dy = mouseY - startY
+    // console.log(`canvas ${canvas}, canvas.objects ${canvas.objects}, currentIndex ${currentIndex}, canvas.objects[currentIndex] ${canvas.objects[currentIndex]}`)
+    currentObject.move(dx, dy)
+    // console.log(dx, dy)
+    canvas.rePaint()
+    startY = mouseY
+    startX = mouseX
+  }
+}
+
+canvas.canvas.addEventListener('mousedown', createFigure)
+canvas.canvas.addEventListener('mousemove', mouseMove)
+canvas.canvas.addEventListener('mousedown', findColliding)
+canvas.canvas.addEventListener('mouseout', mouseOut)
+canvas.canvas.addEventListener('mouseup', mouseOut)
+canvas.canvas.addEventListener('mousedown', selectFigure)
+window.addEventListener('keyup', cancelChange)
